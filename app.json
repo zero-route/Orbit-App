@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "Orbit",
+    "slug": "orbit-media",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ],
+      "package": "com.orbitmedia.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-video",
+      "expo-audio",
+      "expo-secure-store",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Orbit perlu akses galeri untuk menyimpan hasil unduhan.",
+          "savePhotosPermission": "Orbit perlu izin menyimpan hasil unduhan ke galeri.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7ac4b2de-f456-4699-9e1e-3dd7160d0c22"
+      }
+    },
+    "owner": "zero-routesdk",
+    "scheme": "orbit",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/7ac4b2de-f456-4699-9e1e-3dd7160d0c22",
+      "fallbackToCacheTimeout": 0
+    }
+  }
+}
