@@ -56,8 +56,8 @@ jobs:
 
       - name: Simpan hasil ke repo
         run: |
-          git config user.name "orbit-bot"
-          git config user.email "orbit-bot@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "bootstrap: proyek Expo dasar"
           git push
