@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { absolute } from "../config";
 import { fileName } from "../lib/filename";
 import { formatBytes } from "../lib/bytes";
@@ -7,6 +7,7 @@ import { formatCount, formatDuration, splitCaption } from "../lib/text";
 import { colors, radius } from "../theme";
 import type { MediaResult } from "../types";
 import type { SaveFile } from "../download/save";
+import PrimaryButton from "./PrimaryButton";
 
 type Props = {
   result: MediaResult;
@@ -14,20 +15,26 @@ type Props = {
   onSave: (files: SaveFile[]) => void;
 };
 
+function Stat({ label, value }: { label: string; value?: number }) {
+  if (value === undefined) {
+    return null;
+  }
+
+  return (
+    <View style={styles.stat}>
+      <Text style={styles.statValue}>{formatCount(value)}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
 export default function ResultCard({ result, busy, onSave }: Props) {
   const [quality, setQuality] = useState(0);
   const { text, tags } = splitCaption(result.caption);
   const stats = result.stats ?? {};
   const author = result.author;
   const chosen = result.videos[quality];
-
-  const statLine = [
-    stats.views !== undefined ? `${formatCount(stats.views)} tayangan` : null,
-    stats.likes !== undefined ? `${formatCount(stats.likes)} suka` : null,
-    stats.comments !== undefined ? `${formatCount(stats.comments)} komentar` : null,
-  ]
-    .filter(Boolean)
-    .join("  ·  ");
+  const cover = result.coverUrl ?? result.photos[0]?.thumbnailUrl ?? result.photos[0]?.url;
 
   const saveVideo = () => {
     if (chosen) {
@@ -52,11 +59,14 @@ export default function ResultCard({ result, busy, onSave }: Props) {
 
   return (
     <View style={styles.card}>
-      {result.coverUrl ? (
+      {cover ? (
         <View>
-          <Image source={{ uri: absolute(result.coverUrl) }} style={styles.cover} resizeMode="cover" />
+          <Image source={{ uri: absolute(cover) }} style={styles.cover} resizeMode="cover" />
           {result.durationSeconds ? (
             <Text style={styles.badge}>{formatDuration(result.durationSeconds)}</Text>
+          ) : null}
+          {result.kind === "photo" && result.photos.length > 1 ? (
+            <Text style={styles.badge}>{result.photos.length} foto</Text>
           ) : null}
         </View>
       ) : null}
@@ -66,7 +76,9 @@ export default function ResultCard({ result, busy, onSave }: Props) {
           <View style={styles.author}>
             {author.avatarUrl ? (
               <Image source={{ uri: absolute(author.avatarUrl) }} style={styles.avatar} />
-            ) : null}
+            ) : (
+              <View style={styles.avatar} />
+            )}
             <View style={styles.flex}>
               <Text style={styles.name} numberOfLines={1}>
                 {author.name ?? author.username}
@@ -74,11 +86,22 @@ export default function ResultCard({ result, busy, onSave }: Props) {
               {author.username ? (
                 <Text style={styles.mute} numberOfLines={1}>
                   @{author.username.replace(/^@/, "")}
+                  {author.followers !== undefined
+                    ? ` · ${formatCount(author.followers)} pengikut`
+                    : ""}
                 </Text>
               ) : null}
             </View>
           </View>
         ) : null}
+
+        <View style={styles.stats}>
+          <Stat label="Tayangan" value={stats.views} />
+          <Stat label="Suka" value={stats.likes} />
+          <Stat label="Komentar" value={stats.comments} />
+          <Stat label="Bagikan" value={stats.shares} />
+          <Stat label="Simpan" value={stats.saves} />
+        </View>
 
         {text ? (
           <Text style={styles.caption} numberOfLines={5}>
@@ -91,8 +114,6 @@ export default function ResultCard({ result, busy, onSave }: Props) {
             {tags.join(" ")}
           </Text>
         ) : null}
-
-        {statLine ? <Text style={styles.mute}>{statLine}</Text> : null}
 
         {result.kind === "video" && result.videos.length > 1 ? (
           <View style={styles.chips}>
@@ -113,52 +134,25 @@ export default function ResultCard({ result, busy, onSave }: Props) {
 
         <View style={styles.actions}>
           {result.kind === "video" && chosen ? (
-            <Button label="Unduh video" busy={busy} onPress={saveVideo} />
+            <PrimaryButton label="Unduh video" busy={busy} onPress={saveVideo} />
           ) : null}
           {result.kind === "photo" && result.photos.length > 0 ? (
-            <Button
+            <PrimaryButton
               label={`Unduh ${result.photos.length} foto`}
               busy={busy}
               onPress={savePhotos}
             />
           ) : null}
           {result.audio ? (
-            <Button
+            <PrimaryButton
               label={result.kind === "audio" ? "Unduh audio" : "Unduh audio saja"}
               busy={busy}
               onPress={saveAudio}
-              ghost={result.kind !== "audio"}
             />
           ) : null}
         </View>
       </View>
     </View>
-  );
-}
-
-function Button({
-  label,
-  busy,
-  onPress,
-  ghost,
-}: {
-  label: string;
-  busy: boolean;
-  onPress: () => void;
-  ghost?: boolean;
-}) {
-  return (
-    <Pressable
-      disabled={busy}
-      onPress={onPress}
-      style={[styles.button, ghost && styles.ghost, busy && styles.disabled]}
-    >
-      {busy ? (
-        <ActivityIndicator color={ghost ? colors.accent : colors.accentText} />
-      ) : (
-        <Text style={[styles.buttonText, ghost && styles.ghostText]}>{label}</Text>
-      )}
-    </Pressable>
   );
 }
 
@@ -170,46 +164,50 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     overflow: "hidden",
   },
-  cover: { width: "100%", aspectRatio: 16 / 10, backgroundColor: colors.chip },
+  cover: { width: "100%", aspectRatio: 4 / 5, backgroundColor: colors.chip },
   badge: {
     position: "absolute",
-    right: 10,
-    bottom: 10,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    right: 12,
+    bottom: 12,
+    backgroundColor: "rgba(0,0,0,0.65)",
     color: colors.text,
     fontSize: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: radius.sm,
     overflow: "hidden",
   },
-  body: { padding: 14, gap: 10 },
-  author: { flexDirection: "row", alignItems: "center", gap: 10 },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.chip },
+  body: { padding: 16, gap: 14 },
+  author: { flexDirection: "row", alignItems: "center", gap: 12 },
+  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.chip },
   flex: { flex: 1 },
-  name: { color: colors.text, fontWeight: "600", fontSize: 15 },
+  name: { color: colors.text, fontWeight: "700", fontSize: 16 },
   mute: { color: colors.mute, fontSize: 13 },
-  caption: { color: colors.text, fontSize: 14, lineHeight: 20 },
-  tags: { color: colors.accent, fontSize: 13 },
+  stats: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  stat: {
+    backgroundColor: colors.fill,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minWidth: 78,
+  },
+  statValue: { color: colors.text, fontWeight: "700", fontSize: 15 },
+  statLabel: { color: colors.mute, fontSize: 11, marginTop: 1 },
+  caption: { color: colors.soft, fontSize: 14, lineHeight: 21 },
+  tags: { color: colors.mute, fontSize: 13 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     backgroundColor: colors.chip,
+    borderWidth: 1,
+    borderColor: colors.line,
     borderRadius: radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
-  chipOn: { backgroundColor: colors.accent },
+  chipOn: { backgroundColor: colors.accent, borderColor: colors.accent },
   chipText: { color: colors.text, fontSize: 13 },
-  chipTextOn: { color: colors.accentText, fontWeight: "600" },
-  actions: { gap: 8, marginTop: 4 },
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.md,
-    paddingVertical: 13,
-    alignItems: "center",
-  },
-  buttonText: { color: colors.accentText, fontWeight: "700", fontSize: 15 },
-  ghost: { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.accent },
-  ghostText: { color: colors.accent },
-  disabled: { opacity: 0.6 },
+  chipTextOn: { color: colors.accentText, fontWeight: "700" },
+  actions: { gap: 10, marginTop: 2 },
 });
