@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { absolute } from "../config";
 import { fileName } from "../lib/filename";
 import { formatBytes } from "../lib/bytes";
 import { formatCount, formatDuration, splitCaption } from "../lib/text";
@@ -53,7 +54,7 @@ export default function ResultCard({ result, busy, onSave }: Props) {
     <View style={styles.card}>
       {result.coverUrl ? (
         <View>
-          <Image source={{ uri: result.coverUrl }} style={styles.cover} resizeMode="cover" />
+          <Image source={{ uri: absolute(result.coverUrl) }} style={styles.cover} resizeMode="cover" />
           {result.durationSeconds ? (
             <Text style={styles.badge}>{formatDuration(result.durationSeconds)}</Text>
           ) : null}
@@ -64,7 +65,7 @@ export default function ResultCard({ result, busy, onSave }: Props) {
         {author?.name || author?.username ? (
           <View style={styles.author}>
             {author.avatarUrl ? (
-              <Image source={{ uri: author.avatarUrl }} style={styles.avatar} />
+              <Image source={{ uri: absolute(author.avatarUrl) }} style={styles.avatar} />
             ) : null}
             <View style={styles.flex}>
               <Text style={styles.name} numberOfLines={1}>
