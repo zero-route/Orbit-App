@@ -1,4 +1,4 @@
-export const API_URL = "https://GANTI-DENGAN-ALAMAT-ORBIT-API.vercel.app";
+export const API_URL = "https://orbit-software-zeta.vercel.app";
 
 export const APP_VERSION = "0.1.0";
 
