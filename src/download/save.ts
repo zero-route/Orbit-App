@@ -1,5 +1,5 @@
 import { File, Paths } from "expo-file-system";
-import * as MediaLibrary from "expo-media-library/legacy";
+import { Album, Asset, requestPermissionsAsync } from "expo-media-library";
 import { authHeaders } from "../api/device";
 import { absolute, ALBUM_NAME } from "../config";
 
@@ -45,19 +45,18 @@ async function resolveTarget(file: SaveFile) {
 }
 
 async function toGallery(uri: string) {
-  const permission = await MediaLibrary.requestPermissionsAsync(true);
+  const permission = await requestPermissionsAsync(true);
 
   if (!permission.granted) {
     throw new Error("Izin galeri ditolak. Aktifkan di pengaturan aplikasi.");
   }
 
-  const asset = await MediaLibrary.createAssetAsync(uri);
-  const album = await MediaLibrary.getAlbumAsync(ALBUM_NAME);
+  const album = await Album.get(ALBUM_NAME);
 
   if (album) {
-    await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+    await Asset.create(uri, album);
   } else {
-    await MediaLibrary.createAlbumAsync(ALBUM_NAME, asset, false);
+    await Album.create(ALBUM_NAME, [uri], false);
   }
 }
 
