@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Keyboard,
   Pressable,
   ScrollView,
@@ -11,11 +10,37 @@ import {
   View,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { ApiError, resolveLink } from "../api/client";
+import { ApiError, loadDetails, resolveBase } from "../api/client";
+import { getToken } from "../api/device";
+import GradientBox from "../components/GradientBox";
+import Logo from "../components/Logo";
+import PlatformRow from "../components/PlatformRow";
+import PrimaryButton from "../components/PrimaryButton";
 import ResultCard from "../components/ResultCard";
+import Skeleton from "../components/Skeleton";
 import { saveOne, type SaveFile } from "../download/save";
 import { colors, radius } from "../theme";
 import type { MediaResult } from "../types";
+
+const HOSTS: Array<[RegExp, string]> = [
+  [/tiktok\.com/i, "tiktok"],
+  [/instagram\.com/i, "instagram"],
+  [/youtu(\.be|be\.com)/i, "youtube"],
+  [/(^|\/\/|\.)(x|twitter)\.com/i, "x"],
+  [/threads\.(net|com)/i, "threads"],
+  [/pinterest\.|pin\.it/i, "pinterest"],
+  [/spotify\.com|spotify\.link/i, "spotify"],
+];
+
+function detect(value: string) {
+  for (const [pattern, id] of HOSTS) {
+    if (pattern.test(value)) {
+      return id;
+    }
+  }
+
+  return null;
+}
 
 export default function HomeScreen() {
   const [input, setInput] = useState("");
@@ -24,6 +49,11 @@ export default function HomeScreen() {
   const [result, setResult] = useState<MediaResult | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
+  const run = useRef(0);
+
+  useEffect(() => {
+    void getToken();
+  }, []);
 
   const show = (text: string | null, error = false) => {
     setMessage(text);
@@ -39,11 +69,24 @@ export default function HomeScreen() {
   };
 
   const fetchResult = async (link: string) => {
-    const data = await resolveLink(link);
+    const id = (run.current += 1);
+    const base = await resolveBase(link);
 
-    setResult(data);
+    if (id !== run.current) {
+      return base;
+    }
 
-    return data;
+    setResult(base);
+
+    if (base.detailsPending) {
+      void loadDetails(link, base).then((full) => {
+        if (id === run.current) {
+          setResult(full);
+        }
+      });
+    }
+
+    return base;
   };
 
   const submit = async () => {
@@ -80,7 +123,7 @@ export default function HomeScreen() {
       show(
         files.length > 1
           ? `Mengunduh ${index + 1} dari ${files.length}...`
-          : "Mengunduh..."
+          : "Mengunduh, mohon tunggu..."
       );
 
       const outcome = await saveOne(files[index]);
@@ -110,50 +153,63 @@ export default function HomeScreen() {
     setSaving(false);
   };
 
+  const active = detect(input);
+  const hasInput = input.trim().length > 0;
+
   return (
     <View style={styles.root}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text style={styles.title}>Orbit</Text>
-        <Text style={styles.sub}>Tempel link, unduh ke galeri.</Text>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.hero}>
+          <Logo size={60} />
+          <Text style={styles.title}>Orbit Media</Text>
+          <Text style={styles.sub}>Download media dari berbagai platform</Text>
+        </View>
 
         <View style={styles.row}>
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder="https://..."
-            placeholderTextColor={colors.mute}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            returnKeyType="go"
-            onSubmitEditing={submit}
-            style={styles.input}
-          />
-          <Pressable onPress={paste} style={styles.side}>
-            <Text style={styles.sideText}>Tempel</Text>
+          <View style={styles.flex}>
+            <GradientBox radius={22}>
+              <View style={styles.urlInner}>
+                <TextInput
+                  value={input}
+                  onChangeText={setInput}
+                  placeholder="Tempel link di sini"
+                  placeholderTextColor={colors.dim}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  returnKeyType="go"
+                  onSubmitEditing={submit}
+                  style={styles.input}
+                />
+                {hasInput ? (
+                  <Pressable onPress={() => setInput("")} hitSlop={10}>
+                    <Text style={styles.clear}>✕</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </GradientBox>
+          </View>
+          <Pressable onPress={paste} style={styles.paste}>
+            <Text style={styles.pasteText}>Tempel</Text>
           </Pressable>
         </View>
 
-        <Pressable
+        <PrimaryButton
+          label="Ambil media"
           onPress={submit}
-          disabled={loading || !input.trim()}
-          style={[styles.go, (loading || !input.trim()) && styles.off]}
-        >
-          {loading ? (
-            <ActivityIndicator color={colors.accentText} />
-          ) : (
-            <Text style={styles.goText}>Ambil media</Text>
-          )}
-        </Pressable>
+          busy={loading}
+          disabled={!hasInput}
+        />
 
         {message ? (
           <Text style={[styles.message, isError && styles.error]}>{message}</Text>
         ) : null}
 
+        {loading ? <Skeleton /> : null}
+
         {result ? <ResultCard result={result} busy={saving} onSave={save} /> : null}
+
+        {!loading && !result ? <PlatformRow active={active} /> : null}
       </ScrollView>
     </View>
   );
@@ -165,36 +221,32 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
     paddingTop: RNStatusBar.currentHeight ?? 40,
   },
-  scroll: { padding: 20, gap: 14, paddingBottom: 48 },
+  scroll: { padding: 20, gap: 16, paddingBottom: 48 },
+  hero: { alignItems: "center", gap: 8, marginTop: 12, marginBottom: 14 },
   title: { color: colors.text, fontSize: 30, fontWeight: "800" },
-  sub: { color: colors.mute, fontSize: 14, marginBottom: 6 },
-  row: { flexDirection: "row", gap: 8 },
-  input: {
-    flex: 1,
+  sub: { color: colors.mute, fontSize: 14, textAlign: "center" },
+  row: { flexDirection: "row", gap: 10, alignItems: "stretch" },
+  flex: { flex: 1 },
+  urlInner: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.card,
-    borderColor: colors.line,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    color: colors.text,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
+    borderRadius: 20.5,
+    paddingHorizontal: 16,
+    minHeight: 54,
+    gap: 8,
   },
-  side: {
-    backgroundColor: colors.chip,
+  input: { flex: 1, color: colors.text, fontSize: 15, paddingVertical: 12 },
+  clear: { color: colors.mute, fontSize: 16 },
+  paste: {
+    borderWidth: 1,
+    borderColor: "rgba(235,238,245,0.24)",
     borderRadius: radius.md,
     paddingHorizontal: 16,
     justifyContent: "center",
+    backgroundColor: colors.fill,
   },
-  sideText: { color: colors.text, fontWeight: "600" },
-  go: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.md,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  goText: { color: colors.accentText, fontWeight: "700", fontSize: 16 },
-  off: { opacity: 0.5 },
+  pasteText: { color: colors.text, fontWeight: "600", fontSize: 14 },
   message: { color: colors.ok, fontSize: 14 },
   error: { color: colors.bad },
 });
